@@ -1,12 +1,12 @@
-import { render } from '@testing-library/react';
-import { ReactNode } from 'react';
-import Header from '../../components/Header';
+import { render } from '@testing-library/react'
+import { ReactNode } from 'react'
+import Header from '../../components/Header'
 
 jest.mock('react-router-dom', () => {
   return {
     Link: ({ children }: { children: ReactNode }) => children,
-  };
-});
+  }
+})
 
 jest.mock('../../hooks/useCart', () => {
   return {
@@ -30,14 +30,14 @@ jest.mock('../../hooks/useCart', () => {
         },
       ],
     }),
-  };
-});
+  }
+})
 
 describe('Header Component', () => {
   it('should be able to render the amount of products added to cart', () => {
-    const { getByTestId } = render(<Header />);
+    const { getByTestId } = render(<Header />)
 
-    const cartSizeCounter = getByTestId('cart-size');
-    expect(cartSizeCounter).toHaveTextContent('2 itens');
-  });
-});
+    const cartSizeCounter = getByTestId('cart-size')
+    expect(cartSizeCounter).toHaveTextContent('2 itens')
+  })
+})
