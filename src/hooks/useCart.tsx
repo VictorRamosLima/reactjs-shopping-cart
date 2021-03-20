@@ -1,3 +1,4 @@
+import { AxiosResponse } from 'axios'
 import { createContext, ReactNode, useContext, useState } from 'react'
 import { toast } from 'react-toastify'
 import { api } from '../services/api'
@@ -21,30 +22,76 @@ interface CartContextData {
 
 const CartContext = createContext<CartContextData>({} as CartContextData)
 
-export function CartProvider({ children }: CartProviderProps): JSX.Element {
-  const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+const findProductById = async (productId: number): Promise<AxiosResponse<Product>> =>
+  await api.get<Product>(`products/${productId}`).catch(() => {
+    throw new Error('Erro na alteração de quantidade do produto')
+  })
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart)
-    // }
+const findStockByProductId = async (productId: number): Promise<AxiosResponse<Stock>> =>
+  await api.get<Stock>(`stock/${productId}`).catch(() => {
+    throw new Error('Erro na alteração de quantidade do produto')
+  })
+
+export const CartProvider = ({ children }: CartProviderProps): JSX.Element => {
+  const [cart, setCart] = useState<Product[]>(() => {
+    const storagedCart = localStorage.getItem('@RocketShoes:cart')
+
+    if (storagedCart) {
+      return JSON.parse(storagedCart)
+    }
 
     return []
   })
 
   const addProduct = async (productId: number) => {
     try {
-      // TODO
+      const stockResponse = await findStockByProductId(productId)
+      const productResponse = await findProductById(productId)
+
+      if (productResponse.status !== 404 && stockResponse.status !== 404) {
+        const foundProduct = productResponse.data
+        const productStock = stockResponse.data
+
+        const product = cart.find(product => product.id === productId)
+
+        if (product) {
+          if (!(productStock.amount - product.amount - 1 < 0)) {
+            setCart(cart.map(product => {
+              return product.id === productId ?
+                { ...product, amount: product.amount + 1 } :
+                product
+            }))
+          } else {
+            toast.error('Quantidade solicitada fora de estoque')
+            throw new Error(`Product ${productId} not found`)
+          }
+        } else {
+          if (!(productStock.amount - 1 < 0)) {
+            setCart([...cart, { ...foundProduct, amount: 1 }])
+          } else {
+            throw new Error('Quantidade solicitada fora de estoque')
+          }
+        }
+
+        localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
+      } else {
+        throw new Error('Quantidade solicitada fora de estoque')
+      }
     } catch {
-      // TODO
+      toast.error('Erro na adição do produto')
     }
   }
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
+      const product = cart.find(product => product.id === productId)
+
+      if (!product) throw new Error()
+
+      setCart(cart.filter(product => product.id !== productId))
+      localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
     } catch {
-      // TODO
+      toast.error('Erro na remoção do produto')
     }
   }
 
@@ -53,9 +100,29 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      await findProductById(productId)
+      const { data: productStock } = await findStockByProductId(productId)
+
+      const product = cart.find(product => product.id === productId)
+
+      if (product) {
+        if (
+          !(productStock.amount - product.amount - amount < 0) ||
+          amount < product.amount
+        ) {
+          setCart(cart.map(product => {
+            return product.id === productId ?
+              { ...product, amount: amount } :
+              product
+          }))
+        } else {
+          throw new Error('Quantidade solicitada fora de estoque')
+        }
+      }
+
+      localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
+    } catch(error) {
+      toast.error(error.message)
     }
   }
 
